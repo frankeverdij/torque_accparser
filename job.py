@@ -10,6 +10,10 @@ import re
 import argparse
 
 class Job():
+    """This class contains all relevant information of a job processed
+    by the Torque batch system, parsed from accounting information in
+    $PBS_SPOOL/server_priv/accounting
+    """
     def __init__(self):
         self.timestamp = ''
         self.jobid = ''
@@ -33,7 +37,11 @@ class Job():
         self.usage = {}
 
     def update(self, entry):
-        # If the job has exited, don't change anything.
+        """decides whether the job needs to be updated with the information
+        from the (split) accounting line entry. If yes, then the line will
+        be parsed.
+        """
+        # If the job already has exited, don't change anything.
         if (self.status == 'E'):
             return
         # If the job has started, the job can only be deleted or exited.
@@ -45,6 +53,9 @@ class Job():
         return
 
     def parse(self, entry):
+        """parses the accounting line entry for properties and sets member
+        vartiables accordingly
+        """
         try:
             timestamp = time.strptime(entry[0], "%m/%d/%Y %H:%M:%S") #localtime
             self.timestamp = calendar.timegm(timestamp)
@@ -56,9 +67,9 @@ class Job():
         except:
             raise("Too few entries in job line!")
 
-        # regexp matches all nonwhitespace characters before an equal sign
         # these are the properties of each job entry
-        props = re.findall(r'\S*=', message)
+        # the regexp matches all nonwhitespace characters before an equal sign
+                props = re.findall(r'\S*=', message)
         vals = re.split(r'\S*=', message)
 
         # make sure the lists do not contain a ''
@@ -76,6 +87,7 @@ class Job():
         self.group = jobdict.get('group', '')
         self.exitcode = jobdict.get('Exit_status', 0)
         if (self.status == 'D'):
+            # deleted jobs don't have an owner but a requestor
             self.owner = jobdict.get('requestor', '')
         else:
             self.owner = jobdict.get('owner', '')
@@ -86,10 +98,14 @@ class Job():
         self.start = jobdict.get('start', 0)
         self.end = jobdict.get('end', 0)
         
+        # This parses the nodestring for allocated core-slots on nodes
         nodes = jobdict.get('exec_host', '')
+        # the regexp matches all digits after a '/' or any '+' character
         nodes = re.split('\/\d*|\+', nodes)
-        
+        # make sure the lists do not contain a ''
         nodes = list(filter(None, nodes))
+        # count the dictionary occurences for each individual node,
+        # leaving you with an new dict with entries: 'nodename' = #ofcores
         self.nodes = Counter(nodes)
 
         #self.reqcpus = jobdict.get('total_execution_slots', 0)
@@ -102,11 +118,16 @@ class Job():
         self.ruwalltime = hms2sec(jobdict.get('resources_used.walltime', '0'))
         
         if (self.status == 'E'):
+            # upon exit, when used resources are known, compute node usage by
+            # calculating walltime x #ofcores since that is what the system has
+            # reserved
             self.usage = {}
             for k in self.nodes:
                 self.usage[k] = self.nodes[k] * self.ruwalltime
 
     def prepare_csv(self):
+        """creates a string of member variables to be written out as csv
+        """
         return [self.timestamp, self.jobid,
                 self.owner if self.status == 'D' else self.user, self.status,
                 self.exitcode, self.queue, self.ctime, self.start,
@@ -114,6 +135,8 @@ class Job():
                 self.rumemory, self.ruwalltime]
         
 def hms2sec(hms):
+    """quick oneliner for converting HH:MM:SS into seconds
+    """
     return sum(int(x) * 60 ** i for i, x in enumerate(reversed(hms.split(':'))))
 
 def output(joblist, csv_file, csv_usage_file):
@@ -173,14 +196,22 @@ def main():
 
         for line in accounting_file:
             entry = line.split(';')
-            jobid = entry[2] #"license" or job id
-            if entry[1] == 'L': # one of [LQSED]
-                continue #PBS license stats? not associated with a job, skip
+            # the jobid, but some PBS implementations use this field as license
+            jobid = entry[2]
+            # the status entry can be one of [LQSED]:
+            # Licensed, Queued, Started, Ended, Deleted
+            if entry[1] == 'L':
+                continue # skip licensing information
+            # check if the jobid has been seen already
             if jobid not in torquejobs:
+                # No? Then create a new job instance and add it to the joblist
                 job = Job()
                 njobs += 1
                 joblist.append(job)
+                # Create a reference index for each jobid, so we can retrieve
+                # each job form the joblist quickly
                 torquejobs[jobid] = njobs
+            # call job.update() to process the entry
             joblist[torquejobs[jobid]].update(entry)
 
         accounting_file.close()
