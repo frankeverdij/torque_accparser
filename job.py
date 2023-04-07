@@ -69,7 +69,7 @@ class Job():
 
         # these are the properties of each job entry
         # the regexp matches all nonwhitespace characters before an equal sign
-                props = re.findall(r'\S*=', message)
+        props = re.findall(r'\S*=', message)
         vals = re.split(r'\S*=', message)
 
         # make sure the lists do not contain a ''
@@ -161,47 +161,38 @@ def main():
         formatter_class = argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-p', '--pattern', action = 'store_true',
         help = 'treat file argument as a pattern')
-    parser.add_argument('-c', '--combine', action = 'store_true',
-        help = 'combine accounting from pattern match into one CSV')
+    parser.add_argument('-f', '--full', action = 'store_true',
+        help = 'output every job status line, not just jobs with status "E"nded ')
     parser.add_argument('file', type = str,
         help = 'file or pattern containing Torque accounting')
     args = parser.parse_args(argv[1:])
 
-    if args.combine and not args.pattern:
-        parser.error("--combine requires --pattern option")
-        exit(-1)
-
-    if args.combine:
-        torquejobs = {}
-        joblist = []
-        timestamp = []
-        njobs = -1
-        csv_file_fd = open(os.path.basename(args.file) + '.csv', 'w')
-        csv_file = csv.writer(csv_file_fd)
-        csv_usage_fd = open(os.path.basename(args.file) + '.usage.csv', 'w')
-        csv_usage_file = csv.writer(csv_usage_fd)
+    torquejobs = {}
+    joblist = []
+    timestamp = []
+    njobs = -1
+    csv_file_fd = open(os.path.basename(args.file) + '.csv', 'w')
+    csv_file = csv.writer(csv_file_fd)
+    csv_usage_fd = open(os.path.basename(args.file) + '.usage.csv', 'w')
+    csv_usage_file = csv.writer(csv_usage_fd)
 
     for f in glob.glob(args.file+'*' if args.pattern else args.file):
         accounting_file = open(f, 'r')
         accounting_file_name = os.path.basename(f)
 
-        if not args.combine:
-            torquejobs = {}
-            joblist = []
-            njobs = -1
-            csv_file_fd = open(accounting_file_name + '.csv', 'w')
-            csv_file = csv.writer(csv_file_fd)
-            csv_usage_fd = open(accounting_file_name + '.usage.csv', 'w')
-            csv_usage_file = csv.writer(csv_usage_fd)
-
         for line in accounting_file:
             entry = line.split(';')
-            # the jobid, but some PBS implementations use this field as license
+            # this is the jobid, but some PBS implementations use this field
+            # as license information
             jobid = entry[2]
             # the status entry can be one of [LQSED]:
             # Licensed, Queued, Started, Ended, Deleted
             if entry[1] == 'L':
                 continue # skip licensing information
+            # when we don't want all status entries, skip all but "E"nded
+            if not args.full:
+                if not entry[1] == 'E':
+                    continue
             # check if the jobid has been seen already
             if jobid not in torquejobs:
                 # No? Then create a new job instance and add it to the joblist
@@ -216,15 +207,9 @@ def main():
 
         accounting_file.close()
        
-        if not args.combine:
-            output(joblist, csv_file, csv_usage_file)
-            csv_file_fd.close()
-            csv_usage_fd.close()
-                
-    if args.combine:
-        output(joblist, csv_file, csv_usage_file)       
-        csv_file_fd.close()
-        csv_usage_fd.close()
+    output(joblist, csv_file, csv_usage_file)
+    csv_file_fd.close()
+    csv_usage_fd.close()
 
 if __name__ == "__main__":
     main()
