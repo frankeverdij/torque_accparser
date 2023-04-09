@@ -142,23 +142,6 @@ def hms2sec(hms):
     return sum(int(x) * 60 ** i for i, x in enumerate(reversed(hms.split(':'))))
 
 
-def output(joblist, csv_file, csv_usage_file):
-    # sort the joblist
-    joblist.sort(key=lambda job: job.timestamp)
-    for i in joblist:
-        csv_file.writerow(i.prepare_csv())
-
-    nodeusage = Counter(joblist[0].usage)
-           
-    for i in joblist[1:]:
-        nodeusage.update(Counter(i.usage))
-
-    # sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[1], reverse=True))
-    sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
-    for i in sortednodeusage:
-        csv_usage_file.writerow([i, sortednodeusage[i]])
-
-
 def main():
     parser = argparse.ArgumentParser(
         description='Converts Torque accounting file(s) into CSV ',
@@ -208,8 +191,21 @@ def main():
             joblist[torquejobs[jobid]].update(entry)
 
         accounting_file.close()
-       
-    output(joblist, csv_file, csv_usage_file)
+
+    # sort the joblist
+    joblist.sort(key=lambda job: job.timestamp)
+    for i in joblist:
+        csv_file.writerow(i.prepare_csv())
+
+    nodeusage = Counter(joblist[0].usage)
+
+    for i in joblist[1:]:
+        nodeusage.update(Counter(i.usage))
+
+    # sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[1], reverse=True))
+    sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
+    for i in sortednodeusage:
+        csv_usage_file.writerow([i, sortednodeusage[i]])
     csv_file_fd.close()
     csv_usage_fd.close()
 
