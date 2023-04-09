@@ -159,43 +159,39 @@ def main():
     njobs = -1
 
     for f in glob.glob(args.file+'*' if args.pattern else args.file):
-        accounting_file = open(f, 'r')
+        with open(f, 'r') as accounting_file:
+            for line in accounting_file:
+                entry = line.split(';')
+                # this is the jobid, but some PBS implementations use this field
+                # as license information
+                jobid = entry[2]
+                # the status entry can be one of [LQSED]:
+                # Licensed, Queued, Started, Ended, Deleted
+                if entry[1] == 'L':
+                    continue  # skip licensing information
+                # when we don't want all status entries, skip all but "E"nded
+                if not args.full:
+                    if not entry[1] == 'E':
+                        continue
+                # check if the jobid has been seen already
+                if jobid not in torquejobs:
+                    # No? Then create a new job instance and add it to the joblist
+                    job = Job()
+                    njobs += 1
+                    joblist.append(job)
+                    # Create a reference index for each jobid, so we can retrieve
+                    # each job form the joblist quickly
+                    torquejobs[jobid] = njobs
+                # call job.update() to process the entry
+                joblist[torquejobs[jobid]].update(entry)
 
-        for line in accounting_file:
-            entry = line.split(';')
-            # this is the jobid, but some PBS implementations use this field
-            # as license information
-            jobid = entry[2]
-            # the status entry can be one of [LQSED]:
-            # Licensed, Queued, Started, Ended, Deleted
-            if entry[1] == 'L':
-                continue  # skip licensing information
-            # when we don't want all status entries, skip all but "E"nded
-            if not args.full:
-                if not entry[1] == 'E':
-                    continue
-            # check if the jobid has been seen already
-            if jobid not in torquejobs:
-                # No? Then create a new job instance and add it to the joblist
-                job = Job()
-                njobs += 1
-                joblist.append(job)
-                # Create a reference index for each jobid, so we can retrieve
-                # each job form the joblist quickly
-                torquejobs[jobid] = njobs
-            # call job.update() to process the entry
-            joblist[torquejobs[jobid]].update(entry)
-
-        accounting_file.close()
-
-    # sort the joblist
+    # sort the joblist on timestamp in the accounting file(s)
     joblist.sort(key=lambda j: j.timestamp)
 
-    csv_file_fd = open(os.path.basename(args.file) + '.csv', 'w')
-    csv_file = csv.writer(csv_file_fd)
-    for i in joblist:
-        csv_file.writerow(i.prepare_csv())
-    csv_file_fd.close()
+    with open(os.path.basename(args.file) + '.csv', 'w') as csv_fd:
+        csv_file = csv.writer(csv_fd)
+        for i in joblist:
+            csv_file.writerow(i.prepare_csv())
 
     nodeusage = Counter(joblist[0].usage)
 
@@ -205,11 +201,10 @@ def main():
     # sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[1], reverse=True))
     sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
 
-    csv_usage_fd = open(os.path.basename(args.file) + '.usage.csv', 'w')
-    csv_usage_file = csv.writer(csv_usage_fd)
-    for i in sortednodeusage:
-        csv_usage_file.writerow([i, sortednodeusage[i]])
-    csv_usage_fd.close()
+    with open(os.path.basename(args.file) + '.usage.csv', 'w') as csv_fd:
+        csv_file = csv.writer(csv_fd)
+        for i in sortednodeusage:
+            csv_file.writerow([i, sortednodeusage[i]])
 
     users = defaultdict(int)
     for i in joblist:
@@ -218,11 +213,10 @@ def main():
     users = Counter(users)
     sortedusers = dict(sorted(users.items(), key=lambda item: item[1], reverse=True))
 
-    csv_fd = open(os.path.basename(args.file) + '.users.csv', 'w')
-    csv_file = csv.writer(csv_fd)
-    for i in sortedusers:
-        csv_file.writerow([i, sortedusers[i]])
-    csv_fd.close()
+    with open(os.path.basename(args.file) + '.users.csv', 'w') as csv_fd:
+        csv_file = csv.writer(csv_fd)
+        for i in sortedusers:
+            csv_file.writerow([i, sortedusers[i]])
 
 
 if __name__ == "__main__":
