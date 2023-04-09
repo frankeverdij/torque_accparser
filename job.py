@@ -157,10 +157,6 @@ def main():
     torquejobs = {}
     joblist = []
     njobs = -1
-    csv_file_fd = open(os.path.basename(args.file) + '.csv', 'w')
-    csv_file = csv.writer(csv_file_fd)
-    csv_usage_fd = open(os.path.basename(args.file) + '.usage.csv', 'w')
-    csv_usage_file = csv.writer(csv_usage_fd)
 
     for f in glob.glob(args.file+'*' if args.pattern else args.file):
         accounting_file = open(f, 'r')
@@ -194,8 +190,12 @@ def main():
 
     # sort the joblist
     joblist.sort(key=lambda job: job.timestamp)
+
+    csv_file_fd = open(os.path.basename(args.file) + '.csv', 'w')
+    csv_file = csv.writer(csv_file_fd)
     for i in joblist:
         csv_file.writerow(i.prepare_csv())
+    csv_file_fd.close()
 
     nodeusage = Counter(joblist[0].usage)
 
@@ -204,9 +204,11 @@ def main():
 
     # sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[1], reverse=True))
     sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
+
+    csv_usage_fd = open(os.path.basename(args.file) + '.usage.csv', 'w')
+    csv_usage_file = csv.writer(csv_usage_fd)
     for i in sortednodeusage:
         csv_usage_file.writerow([i, sortednodeusage[i]])
-    csv_file_fd.close()
     csv_usage_fd.close()
 
 
