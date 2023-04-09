@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from sys import argv
 import csv
 import os
@@ -189,7 +189,7 @@ def main():
         accounting_file.close()
 
     # sort the joblist
-    joblist.sort(key=lambda job: job.timestamp)
+    joblist.sort(key=lambda j: j.timestamp)
 
     csv_file_fd = open(os.path.basename(args.file) + '.csv', 'w')
     csv_file = csv.writer(csv_file_fd)
@@ -210,6 +210,19 @@ def main():
     for i in sortednodeusage:
         csv_usage_file.writerow([i, sortednodeusage[i]])
     csv_usage_fd.close()
+
+    users = defaultdict(int)
+    for i in joblist:
+        users[i.user] += i.reqcpus * i.ruwalltime
+
+    users = Counter(users)
+    sortedusers = dict(sorted(users.items(), key=lambda item: item[1], reverse=True))
+
+    csv_fd = open(os.path.basename(args.file) + '.users.csv', 'w')
+    csv_file = csv.writer(csv_fd)
+    for i in sortedusers:
+        csv_file.writerow([i, sortedusers[i]])
+    csv_fd.close()
 
 
 if __name__ == "__main__":
