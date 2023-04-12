@@ -161,29 +161,33 @@ def main():
     for f in glob.glob(args.file+'*' if args.pattern else args.file):
         with open(f, 'r') as accounting_file:
             for line in accounting_file:
-                entry = line.split(';')
-                # this is the jobid, but some PBS implementations use this field
-                # as license information
-                jobid = entry[2]
-                # the status entry can be one of [LQSED]:
-                # Licensed, Queued, Started, Ended, Deleted
-                if entry[1] == 'L':
-                    continue  # skip licensing information
-                # when we don't want all status entries, skip all but "E"nded
-                if not args.full:
-                    if not entry[1] == 'E':
-                        continue
-                # check if the jobid has been seen already
-                if jobid not in torquejobs:
-                    # No? Then create a new job instance and add it to the joblist
-                    job = Job()
-                    njobs += 1
-                    joblist.append(job)
-                    # Create a reference index for each jobid, so we can retrieve
-                    # each job form the joblist quickly
-                    torquejobs[jobid] = njobs
-                # call job.update() to process the entry
-                joblist[torquejobs[jobid]].update(entry)
+                try:
+                    entry = line.split(';')
+                    # this is the jobid, but some PBS implementations use this field
+                    # as license information
+                    jobid = entry[2]
+                    # the status entry can be one of [LQSED]:
+                    # Licensed, Queued, Started, Ended, Deleted
+                    if entry[1] == 'L':
+                        continue  # skip licensing information
+                    # when we don't want all status entries, skip all but "E"nded
+                    if not args.full:
+                        if not entry[1] == 'E':
+                            continue
+                    # check if the jobid has been seen already
+                    if jobid not in torquejobs:
+                        # No? Then create a new job instance and add it to the joblist
+                        job = Job()
+                        njobs += 1
+                        joblist.append(job)
+                        # Create a reference index for each jobid, so we can retrieve
+                        # each job form the joblist quickly
+                        torquejobs[jobid] = njobs
+                    # call job.update() to process the entry
+                    joblist[torquejobs[jobid]].update(entry)
+                except IndexError:
+                    print(f, " has no useful accounting line(s).")
+                    continue
 
     # sort the joblist on timestamp in the accounting file(s)
     joblist.sort(key=lambda j: j.timestamp)
@@ -193,30 +197,32 @@ def main():
         for i in joblist:
             csv_file.writerow(i.prepare_csv())
 
-    nodeusage = Counter(joblist[0].usage)
+    try:
+        nodeusage = Counter(joblist[0].usage)
+        for i in joblist[1:]:
+            nodeusage.update(Counter(i.usage))
 
-    for i in joblist[1:]:
-        nodeusage.update(Counter(i.usage))
+        # sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[1], reverse=True))
+        sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
 
-    # sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[1], reverse=True))
-    sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
+        with open(os.path.basename(args.file) + '.usage.csv', 'w') as csv_fd:
+            csv_file = csv.writer(csv_fd)
+            for i in sortednodeusage:
+                csv_file.writerow([i, sortednodeusage[i]])
 
-    with open(os.path.basename(args.file) + '.usage.csv', 'w') as csv_fd:
-        csv_file = csv.writer(csv_fd)
-        for i in sortednodeusage:
-            csv_file.writerow([i, sortednodeusage[i]])
+        users = defaultdict(int)
+        for i in joblist:
+            users[i.user] += i.reqcpus * i.ruwalltime
 
-    users = defaultdict(int)
-    for i in joblist:
-        users[i.user] += i.reqcpus * i.ruwalltime
+        users = Counter(users)
+        sortedusers = dict(sorted(users.items(), key=lambda item: item[1], reverse=True))
 
-    users = Counter(users)
-    sortedusers = dict(sorted(users.items(), key=lambda item: item[1], reverse=True))
-
-    with open(os.path.basename(args.file) + '.users.csv', 'w') as csv_fd:
-        csv_file = csv.writer(csv_fd)
-        for i in sortedusers:
-            csv_file.writerow([i, sortedusers[i]])
+        with open(os.path.basename(args.file) + '.users.csv', 'w') as csv_fd:
+            csv_file = csv.writer(csv_fd)
+            for i in sortedusers:
+                csv_file.writerow([i, sortedusers[i]])
+    except IndexError:
+        print("Empty joblist")
 
 
 if __name__ == "__main__":
