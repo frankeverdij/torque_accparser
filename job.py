@@ -148,6 +148,8 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-p', '--pattern', action='store_true',
                         help='treat file argument as a pattern')
+    parser.add_argument('-d', '--directory', type=str,
+                        help='location of torque directory')
     parser.add_argument('-f', '--full', action='store_true',
                         help='output every job status line, not just jobs with status "E"nded ')
     parser.add_argument('file', type=str,
@@ -158,7 +160,10 @@ def main():
     joblist = []
     njobs = -1
 
-    for f in glob.glob(args.file+'*' if args.pattern else args.file):
+    accountingdir = args.directory+'/server_priv/accounting/' if args.directory else ''
+    nodedir = args.directory+'/server_priv/' if args.directory else ''
+
+    for f in glob.glob(accountingdir + args.file+'*' if args.pattern else accountingdir + args.file):
         with open(f, 'r') as accounting_file:
             for line in accounting_file:
                 try:
