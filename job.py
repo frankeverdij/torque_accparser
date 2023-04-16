@@ -197,7 +197,7 @@ def main():
     # first, get the name of the masternode
     if (args.directory):
         with open(args.directory+'/server_name', 'r') as master_fd:
-            masternode = master_fd.readline()
+            masternode = master_fd.readline().rstrip('\n')
     else:
         masternode = next(iter(torquejobs)).split('.')[1]
 
