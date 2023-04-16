@@ -194,10 +194,17 @@ def main():
                     print(f, " has no useful accounting line(s).")
                     continue
 
+    # first, get the name of the masternode
+    if (args.directory):
+        with open(args.directory+'/server_name', 'r') as master_fd:
+            masternode = master_fd.readline()
+    else:
+        masternode = next(iter(torquejobs)).split('.')[1]
+
     # sort the joblist on timestamp in the accounting file(s)
     joblist.sort(key=lambda j: j.timestamp)
 
-    with open(os.path.basename(args.file) + '.csv', 'w') as csv_fd:
+    with open(masternode + '.' + os.path.basename(args.file) + '.csv', 'w') as csv_fd:
         csv_file = csv.writer(csv_fd)
         for i in joblist:
             csv_file.writerow(i.prepare_csv())
@@ -210,7 +217,7 @@ def main():
         # sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[1], reverse=True))
         sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
 
-        with open(os.path.basename(args.file) + '.usage.csv', 'w') as csv_fd:
+        with open(masternode + '.' + os.path.basename(args.file) + '.usage.csv', 'w') as csv_fd:
             csv_file = csv.writer(csv_fd)
             for i in sortednodeusage:
                 csv_file.writerow([i, sortednodeusage[i]])
@@ -222,7 +229,7 @@ def main():
         users = Counter(users)
         sortedusers = dict(sorted(users.items(), key=lambda item: item[1], reverse=True))
 
-        with open(os.path.basename(args.file) + '.users.csv', 'w') as csv_fd:
+        with open(masternode + '.' + os.path.basename(args.file) + '.users.csv', 'w') as csv_fd:
             csv_file = csv.writer(csv_fd)
             for i in sortedusers:
                 csv_file.writerow([i, sortedusers[i]])
