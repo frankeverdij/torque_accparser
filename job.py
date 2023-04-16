@@ -35,6 +35,7 @@ class Job:
         self.rumemory = ''
         self.ruwalltime = 0
         self.usage = {}
+        self.maxslot = {}
 
     def update(self, entry):
         """decides whether the job needs to be updated with the information
@@ -101,13 +102,22 @@ class Job:
         
         # This parses the nodestring for allocated core-slots on nodes
         nodes = jobdict.get('exec_host', '')
-        # the regexp matches all digits after a '/' or any '+' character
-        nodes = re.split('/\d*|\+', nodes)
-        # make sure the lists do not contain a ''
+        # the regexp splits on any '/' or any '+' character
+        nodes = re.split('\/|\+', nodes)
+        # make sure the list does not contain a ''
         nodes = list(filter(None, nodes))
         # count the dictionary occurences for each individual node,
         # leaving you with a new dict with entries: 'nodename' = #ofcores
-        self.nodes = Counter(nodes)
+        # note: the even indices have the nodenames, the odd have the coreslots
+        self.nodes = Counter(nodes[::2])
+
+        # determine the max coreslot for each node allocated to this job
+        # this is used when there is no 'nodes' list available
+        for i,n in enumerate(nodes[::2]):
+            if n in self.maxslot:
+                self.maxslot[n] = max(self.maxslot[n], int(nodes[2*i+1]))
+            else:
+                self.maxslot[n] = int(nodes[2*i+1])
 
         # self.reqcpus = jobdict.get('total_execution_slots', 0)
         self.reqcpus = len(nodes) 
