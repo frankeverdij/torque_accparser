@@ -119,8 +119,7 @@ class Job:
             else:
                 self.maxslot[n] = int(nodes[2*i+1])
 
-        # self.reqcpus = jobdict.get('total_execution_slots', 0)
-        self.reqcpus = len(nodes) 
+        self.reqcpus = int(jobdict.get('total_execution_slots', 0))
         # self.reqnodes = jobdict.get('unique_node_count', 0)
         self.reqnodes = len(self.nodes)
         
