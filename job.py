@@ -227,7 +227,7 @@ def main():
         # sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[1], reverse=True))
         sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
 
-        with open(masternode + '.' + os.path.basename(args.file) + '.usage.csv', 'w') as csv_fd:
+        with open(masternode + '.' + os.path.basename(args.file) + '.nodes.csv', 'w') as csv_fd:
             csv_file = csv.writer(csv_fd)
             for i in sortednodeusage:
                 csv_file.writerow([i, sortednodeusage[i]])
