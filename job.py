@@ -219,6 +219,25 @@ def main():
         for i in joblist:
             csv_file.writerow(i.prepare_csv())
 
+    # obtain number of cores for each node
+    if (args.directory):
+        with open(args.directory + '/server_priv/nodes', 'r') as node_fd:
+            nodecpus = {}
+            for line in node_fd:
+                node = re.split('\snp=|\s', line)
+                node = list(filter(None, node))[:2]
+                nodecpus[node[0]] = node[1]
+    else:
+        nodecpus = {}
+        for i in joblist:
+            for k,v in i.maxslot.items():
+                if k in nodecpus:
+                    nodecpus[k] = max(nodecpus[k], v + 1)
+                else:
+                    nodecpus[k] = v + 1
+
+    # the next block computes node usage as a total of
+    # requested cores*walltime in seconds
     try:
         nodeusage = Counter(joblist[0].usage)
         for i in joblist[1:]:
