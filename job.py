@@ -140,10 +140,16 @@ class Job:
         """
         return [self.timestamp, self.jobid,
                 self.owner if self.status == 'D' else self.user, self.status,
-                self.exitcode, self.queue, self.ctime, self.start,
+                self.exitcode, self.queue, self.qtime, self.start,
                 self.end, self.reqnodes, self.reqcpus, self.rucputime,
                 self.rumemory, self.ruwalltime]
 
+def header_csv():
+    """prints the header string for the joblist csv file
+    """
+    return ['timestamp', 'jobid', 'owner', 'status', 'exitcode', 'queue',
+            't_queue', 't_start', 't_end', '#nodes', '#cores',
+            'used_cputime', 'used_memory', 'used_walltime']
 
 def hms2sec(hms):
     """quick oneliner for converting HH:MM:SS into seconds
@@ -215,6 +221,7 @@ def main():
 
     with open(masternode + '.' + os.path.basename(args.file) + '.csv', 'w') as csv_fd:
         csv_file = csv.writer(csv_fd)
+        csv_file.writerow(header_csv())
         for i in joblist:
             csv_file.writerow(i.prepare_csv())
 
