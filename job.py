@@ -15,11 +15,13 @@ class Job:
     $PBS_SPOOL/server_priv/accounting
     """
     def __init__(self):
-        self.timestamp = ''
+        self.timestamp = 0
         self.jobid = ''
         self.user = ''
         self.group = ''
         self.status = ''
+        self.statuslog = {}
+        self.statusstring = ''
         self.exitcode = 0
         self.owner = ''
         self.queue = ''
@@ -42,10 +44,16 @@ class Job:
         from the (split) accounting line entry. If yes, then the line will
         be parsed.
         """
+        # Register status
+        timestamp = time.strptime(entry[0], "%m/%d/%Y %H:%M:%S")  # localtime
+        timestamp = calendar.timegm(timestamp)
+        self.statuslog[timestamp] = entry[1]
+        self.statusstring += entry[1]
         # If the job already has exited, don't change anything.
         if self.status == 'E':
             return
-        # If the job has started, the job can only be deleted or exited.
+        # If the job has started, the job can only be rerun, deleted,
+        # aborted or exited.
         if self.status == 'S':
             if entry[1] == 'Q':
                 return
@@ -171,6 +179,7 @@ def main():
                         help='file or pattern containing Torque accounting')
     args = parser.parse_args(argv[1:])
 
+    entries = []
     torquejobs = {}
     joblist = []
     njobs = -1
@@ -181,33 +190,41 @@ def main():
     for f in glob.glob(accountingdir + args.file+'*' if args.pattern else accountingdir + args.file):
         with open(f, 'r') as accounting_file:
             for line in accounting_file:
-                try:
-                    entry = line.split(';')
-                    # this is the jobid, but some PBS implementations use this field
-                    # as license information
-                    jobid = entry[2]
-                    # the status entry can be one of [LQSED]:
-                    # Licensed, Queued, Started, Ended, Deleted
-                    if entry[1] == 'L':
-                        continue  # skip licensing information
-                    # when we don't want all status entries, skip all but "E"nded
-                    if not args.full:
-                        if not entry[1] == 'E':
-                            continue
-                    # check if the jobid has been seen already
-                    if jobid not in torquejobs:
-                        # No? Then create a new job instance and add it to the joblist
-                        job = Job()
-                        njobs += 1
-                        joblist.append(job)
-                        # Create a reference index for each jobid, so we can retrieve
-                        # each job form the joblist quickly
-                        torquejobs[jobid] = njobs
-                    # call job.update() to process the entry
-                    joblist[torquejobs[jobid]].update(entry)
-                except IndexError:
-                    print(f, " has no useful accounting line(s).")
-                    continue
+                entry = line.split(';')
+                # when we don't want all status entries, record only 'E'nded jobs
+                if not args.full:
+                    if entry[1] != 'E':
+                        continue
+                entries.append(entry)
+
+    # sort the entries on timestamp in the accounting file(s). (=first element)
+    entries.sort()
+
+    # now that we have sorted all the entries, go through it
+    for entry in entries:
+        try:
+            # this is the jobid, but some PBS implementations use this field
+            # as license information
+            jobid = entry[2]
+            # the status entry can be one of [LQSEDRACT]:
+            # Licensed, Queued, Started, Ended, Deleted, Rerun, Aborted,
+            # Checkpointed, conTinued
+            if entry[1] == 'L' or entry[1] == 'C' or entry[1] == 'T':
+                continue  # skip licensing, checkpoint and continue entries
+            # check if the jobid has been seen already
+            if jobid not in torquejobs:
+                # No? Then create a new job instance and add it to the joblist
+                job = Job()
+                njobs += 1
+                joblist.append(job)
+                # Create a reference index for each jobid, so we can retrieve
+                # each job from the joblist quickly
+                torquejobs[jobid] = njobs
+                # call job.update() to process the entry
+            joblist[torquejobs[jobid]].update(entry)
+        except IndexError:
+            print(f, " has no useful accounting line(s).")
+            continue
 
     # first, get the name of the masternode
     if (args.directory):
