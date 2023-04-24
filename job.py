@@ -175,8 +175,8 @@ def main():
                         help='location of torque directory')
     parser.add_argument('-f', '--full', action='store_true',
                         help='output every job status line, not just jobs with status "E"nded ')
-    parser.add_argument('file', type=str,
-                        help='file or pattern containing Torque accounting')
+    parser.add_argument('file', type=str, nargs='*',
+                        help='file(s) or pattern(s) containing Torque accounting')
     args = parser.parse_args(argv[1:])
 
     entries = []
@@ -187,15 +187,16 @@ def main():
     accountingdir = args.directory+'/server_priv/accounting/' if args.directory else ''
     nodedir = args.directory+'/server_priv/' if args.directory else ''
 
-    for f in glob.glob(accountingdir + args.file+'*' if args.pattern else accountingdir + args.file):
-        with open(f, 'r') as accounting_file:
-            for line in accounting_file:
-                entry = line.split(';')
-                # when we don't want all status entries, record only 'E'nded jobs
-                if not args.full:
-                    if entry[1] != 'E':
-                        continue
-                entries.append(entry)
+    for accfp in args.file:
+        for f in glob.glob(accountingdir + accfp + '*' if args.pattern else accountingdir + accfp):
+            with open(f, 'r') as accounting_file:
+                for line in accounting_file:
+                    entry = line.split(';')
+                    # when we don't want all status entries, record only 'E'nded jobs
+                    if not args.full:
+                        if entry[1] != 'E':
+                            continue
+                    entries.append(entry)
 
     # sort the entries on timestamp in the accounting file(s). (=first element)
     entries.sort()
@@ -236,7 +237,10 @@ def main():
     # sort the joblist on timestamp in the accounting file(s)
     joblist.sort(key=lambda j: j.timestamp)
 
-    with open(masternode + '.' + os.path.basename(args.file) + '.csv', 'w') as csv_fd:
+    # make a concise filename for the csv output files
+    combinedname = os.path.basename(args.file[0]) + '-' + os.path.basename(args.file[-1]) if len(args.file) > 1 else os.path.basename(args.file[0])
+
+    with open(masternode + '.' + combinedname + '.csv', 'w') as csv_fd:
         csv_file = csv.writer(csv_fd)
         csv_file.writerow(header_csv())
         for i in joblist:
@@ -269,7 +273,7 @@ def main():
         # sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[1], reverse=True))
         sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
 
-        with open(masternode + '.' + os.path.basename(args.file) + '.nodes.csv', 'w') as csv_fd:
+        with open(masternode + '.' + combinedname + '.nodes.csv', 'w') as csv_fd:
             csv_file = csv.writer(csv_fd)
             for i in sortednodeusage:
                 csv_file.writerow([i, sortednodeusage[i]])
@@ -281,7 +285,7 @@ def main():
         users = Counter(users)
         sortedusers = dict(sorted(users.items(), key=lambda item: item[1], reverse=True))
 
-        with open(masternode + '.' + os.path.basename(args.file) + '.users.csv', 'w') as csv_fd:
+        with open(masternode + '.' + combinedname + '.users.csv', 'w') as csv_fd:
             csv_file = csv.writer(csv_fd)
             for i in sortedusers:
                 csv_file.writerow([i, sortedusers[i]])
