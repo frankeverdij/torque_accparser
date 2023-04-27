@@ -34,7 +34,7 @@ class Job:
         self.reqcpus = 0
         self.reqnodes = 0
         self.rucputime = 0
-        self.rumemory = ''
+        self.rumemory = 0
         self.ruwalltime = 0
         self.usage = {}
         self.maxslot = {}
@@ -132,7 +132,7 @@ class Job:
         self.reqnodes = len(self.nodes)
         
         self.rucputime = hms2sec(jobdict.get('resources_used.cput', '0'))
-        self.rumemory = jobdict.get('resources_used.mem', '0kb')
+        self.rumemory = jobdict.get('resources_used.mem', '0kb').rstrip('kb')
         self.ruwalltime = hms2sec(jobdict.get('resources_used.walltime', '0'))
         
         if self.status == 'E':
