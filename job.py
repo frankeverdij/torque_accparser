@@ -143,9 +143,9 @@ class Job:
         # self.reqnodes = jobdict.get('unique_node_count', 0)
         self.reqnodes = len(self.nodes)
         
-        self.rucputime = hms2sec(jobdict.get('resources_used.cput', '0'))
-        self.rumemory = jobdict.get('resources_used.mem', '0kb').rstrip('kb')
-        self.ruwalltime = hms2sec(jobdict.get('resources_used.walltime', '0'))
+        self.rucputime = hms2sec(jobdict.get('resources_used.cput', 0))
+        self.rumemory = int(jobdict.get('resources_used.mem', 0).rstrip('kb'))
+        self.ruwalltime = hms2sec(jobdict.get('resources_used.walltime', 0))
         
         if self.status == 'E':
             # upon exit, when used resources are known, compute node usage by
@@ -169,7 +169,7 @@ def header_csv():
     """
     return ['timestamp', 'jobid', 'owner', 'status', 'exitcode', 'queue',
             't_queue', 't_start', 't_end', '#nodes', '#cores',
-            'used_cputime', 'used_memory', 'used_walltime']
+            'used_cputime', 'used_memory(kb)', 'used_walltime']
 
 def header_users_csv():
     """print the header string for users csv file
@@ -241,7 +241,7 @@ def main():
                 # call job.update() to process the entry
             joblist[torquejobs[jobid]].update(entry)
         except IndexError:
-            print(f, " has no useful accounting line(s).")
+            print("no useful accounting line(s).")
             continue
 
     # first, get the name of the masternode
