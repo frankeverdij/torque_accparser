@@ -76,7 +76,7 @@ class Job:
 
     def parse(self, entry):
         """parses the accounting line entry for properties and sets member
-        vartiables accordingly
+        variables accordingly
         """
         message = ''
         try:
@@ -89,8 +89,8 @@ class Job:
 
         # these are the properties of each job entry
         # the regexp matches all nonwhitespace characters before an equal sign
-        props = re.findall(r'\S*=', message)
-        vals = re.split(r'\S*=', message)
+        props = re.findall(r"\S*=", message)
+        vals = re.split(r"\S*=", message)
 
         # make sure the lists do not contain a ''
         props = list(filter(None, props))
@@ -164,7 +164,7 @@ class Job:
 
 
 def header_csv():
-    """prints the header string for the joblist csv file
+    """lists the header string for the joblist csv file
     """
     return ['timestamp', 'jobid', 'owner', 'status', 'exitcode', 'queue',
             't_queue', 't_start', 't_end', '#nodes', '#cores',
@@ -172,7 +172,7 @@ def header_csv():
 
 
 def header_users_csv():
-    """print the header string for users csv file
+    """lists the header string for users csv file
     """
     return ['user', 'used_cpuhours', 'req_cpus*walltime', 'pct_parallel']
 
@@ -289,7 +289,7 @@ def main():
                     nodecpus[k] = v + 1
 
     # the next block computes node usage as a total of
-    # requested cores*walltime in seconds
+    # requested cores x walltime in seconds
     nodeusage = Counter(joblist[0].usage)
     for i in joblist[1:]:
         nodeusage.update(Counter(i.usage))
