@@ -8,6 +8,7 @@ import glob
 import re
 import argparse
 
+
 class Users:
     """This class contains user information for billing purposes
     (cpu's x hours) and degree of parallelism (% used / requested)
@@ -21,6 +22,7 @@ class Users:
         self.usedcpuseconds += usedcpuseconds
         self.reqcpuseconds += reqcpuseconds
     
+
 class Job:
     """This class contains all relevant information of a job processed
     by the Torque batch system, parsed from accounting information in
@@ -123,7 +125,7 @@ class Job:
         # This parses the nodestring for allocated core-slots on nodes
         nodes = jobdict.get('exec_host', '')
         # the regexp splits on any '/' or any '+' character
-        nodes = re.split('\/|\+', nodes)
+        nodes = re.split('[/+]', nodes)
         # make sure the list does not contain a ''
         nodes = list(filter(None, nodes))
         # count the dictionary occurences for each individual node,
@@ -133,7 +135,7 @@ class Job:
 
         # determine the max coreslot for each node allocated to this job
         # this is used when there is no 'nodes' list available
-        for i,n in enumerate(nodes[::2]):
+        for i, n in enumerate(nodes[::2]):
             if n in self.maxslot:
                 self.maxslot[n] = max(self.maxslot[n], int(nodes[2*i+1]))
             else:
@@ -164,6 +166,7 @@ class Job:
                 self.end, self.reqnodes, self.reqcpus, self.rucputime,
                 self.rumemory, self.ruwalltime]
 
+
 def header_csv():
     """prints the header string for the joblist csv file
     """
@@ -171,10 +174,12 @@ def header_csv():
             't_queue', 't_start', 't_end', '#nodes', '#cores',
             'used_cputime', 'used_memory(kb)', 'used_walltime']
 
+
 def header_users_csv():
     """print the header string for users csv file
     """
     return ['user', 'used_cpuhours', 'req_cpus*walltime', 'pct_parallel']
+
 
 def hms2sec(hms):
     """quick oneliner for converting HH:MM:SS into seconds
@@ -202,8 +207,8 @@ def main():
     njobs = -1
 
     accountingdir = args.directory+'/server_priv/accounting/' if args.directory else ''
-    nodedir = args.directory+'/server_priv/' if args.directory else ''
 
+    # loop over accounting files (or patterns) and build the entries list
     for accfp in args.file:
         for f in glob.glob(accountingdir + accfp + '*' if args.pattern else accountingdir + accfp):
             with open(f, 'r') as accounting_file:
@@ -215,10 +220,10 @@ def main():
                             continue
                     entries.append(entry)
 
-    # sort the entries on timestamp in the accounting file(s). (=first element)
+    # sort the entries on timestamp in the accounting file(s). (=first element of the entry sublist)
     entries.sort()
 
-    # now that we have sorted all the entries, go through it
+    # now that we have sorted all the entries, go through it and build the joblist
     for entry in entries:
         try:
             # this is the jobid, but some PBS implementations use this field
@@ -244,8 +249,8 @@ def main():
             print("no useful accounting line(s).")
             continue
 
-    # first, get the name of the masternode
-    if (args.directory):
+    # get the name of the masternode
+    if args.directory:
         with open(args.directory+'/server_name', 'r') as master_fd:
             masternode = master_fd.readline().rstrip('\n')
     else:
@@ -255,26 +260,31 @@ def main():
     joblist.sort(key=lambda j: j.timestamp)
 
     # make a concise filename for the csv output files
-    combinedname = os.path.basename(args.file[0]) + '-' + os.path.basename(args.file[-1]) if len(args.file) > 1 else os.path.basename(args.file[0])
+    combinedname = os.path.basename(args.file[0]) + '-' + os.path.basename(args.file[-1])\
+        if len(args.file) > 1 else os.path.basename(args.file[0])
 
+    # write all job entries to a csv file
     with open(masternode + '.' + combinedname + '.csv', 'w') as csv_fd:
         csv_file = csv.writer(csv_fd)
         csv_file.writerow(header_csv())
         for i in joblist:
             csv_file.writerow(i.prepare_csv())
 
+    # Nodes:
     # obtain number of cores for each node
-    if (args.directory):
+    if args.directory:
         with open(args.directory + '/server_priv/nodes', 'r') as node_fd:
             nodecpus = {}
             for line in node_fd:
-                node = re.split('\snp=|\s', line)
+                node = re.split(r"\snp=|\s", line)
                 node = list(filter(None, node))[:2]
                 nodecpus[node[0]] = node[1]
     else:
+        # if the nodes files is missing, do a best guess
+        # by determining the maximum core # per node
         nodecpus = {}
         for i in joblist:
-            for k,v in i.maxslot.items():
+            for k, v in i.maxslot.items():
                 if k in nodecpus:
                     nodecpus[k] = max(nodecpus[k], v + 1)
                 else:
@@ -282,41 +292,42 @@ def main():
 
     # the next block computes node usage as a total of
     # requested cores*walltime in seconds
-    try:
-        nodeusage = Counter(joblist[0].usage)
-        for i in joblist[1:]:
-            nodeusage.update(Counter(i.usage))
+    nodeusage = Counter(joblist[0].usage)
+    for i in joblist[1:]:
+        nodeusage.update(Counter(i.usage))
 
-        # sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[1], reverse=True))
-        sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
+    sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
 
-        with open(masternode + '.' + combinedname + '.nodes.csv', 'w') as csv_fd:
-            csv_file = csv.writer(csv_fd)
-            for i in sortednodeusage:
-                csv_file.writerow([i, sortednodeusage[i]])
+    # output node information to a csv
+    with open(masternode + '.' + combinedname + '.nodes.csv', 'w') as csv_fd:
+        csv_file = csv.writer(csv_fd)
+        for i in sortednodeusage:
+            csv_file.writerow([i, sortednodeusage[i]])
 
-        userdict = defaultdict(Users)
-        for i in joblist:
-            if i.user not in userdict:
-                userdict[i.user] = Users(i.user, i.rucputime, i.reqcpus * i.ruwalltime)
-            else:
-                userdict[i.user].update(i.rucputime, i.reqcpus * i.ruwalltime)
+    # Users:
+    # make a dict with usernames, actual cpuseconds used, and requested cpu times the walltime used
+    # this allows for computing the degree of parallelisation per user
+    userdict = defaultdict(Users)
+    for i in joblist:
+        if i.user not in userdict:
+            userdict[i.user] = Users(i.user, i.rucputime, i.reqcpus * i.ruwalltime)
+        else:
+            userdict[i.user].update(i.rucputime, i.reqcpus * i.ruwalltime)
 
-        sorteduser = dict(sorted(userdict.items(), key=lambda item: item[1].usedcpuseconds, reverse=True))
+    sorteduser = dict(sorted(userdict.items(), key=lambda item: item[1].usedcpuseconds, reverse=True))
 
-        with open(masternode + '.' + combinedname + '.users.csv', 'w') as csv_fd:
-            csv_file = csv.writer(csv_fd)
-            csv_file.writerow(header_users_csv())
-            for k in sorteduser:
-                assert(k == sorteduser[k].user)
-                u = sorteduser[k].usedcpuseconds
-                r = sorteduser[k].reqcpuseconds
-                billing = [k, u/3600, r/3600, 100 * u/r if r>0 else 0]
-                billing = [x if type(x) is str else format(x, '.2f') for x in billing]
-                csv_file.writerow(billing)
-
-    except IndexError:
-        print("Empty joblist")
+    # output users information to a csv
+    # convert cpuseconds to cpuhours and calculate percentage of parallelization
+    with open(masternode + '.' + combinedname + '.users.csv', 'w') as csv_fd:
+        csv_file = csv.writer(csv_fd)
+        csv_file.writerow(header_users_csv())
+        for k in sorteduser:
+            assert(k == sorteduser[k].user)
+            u = sorteduser[k].usedcpuseconds
+            r = sorteduser[k].reqcpuseconds
+            billing = [k, u/3600, r/3600, 100 * u/r if r > 0 else 0]
+            billing = [x if type(x) is str else format(x, '.2f') for x in billing]
+            csv_file.writerow(billing)
 
 
 if __name__ == "__main__":
