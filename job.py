@@ -171,6 +171,12 @@ def header_csv():
             'used_cputime', 'used_memory(kb)', 'used_walltime']
 
 
+def header_nodes_csv():
+    """lists the header string for users csv file
+    """
+    return ['nodes', 'total_cpuhours', 'pct_load']
+
+
 def header_users_csv():
     """lists the header string for users csv file
     """
@@ -181,6 +187,15 @@ def hms2sec(hms):
     """quick oneliner for converting HH:MM:SS into seconds
     """
     return sum(int(x) * 60 ** i for i, x in enumerate(reversed(hms.split(':'))))
+
+
+def epoch_interval(start, end):
+    """computes the difference between two epochs. The start epoch is rounded down to midnight,
+    the end epoch is rounded up to the following midnight.
+    This gives you the total number of seconds over one or several logging periods
+    """
+    end_next = end + 86400
+    return (end_next - end_next % 86400) - (start - start % 86400)
 
 
 def main():
@@ -276,7 +291,7 @@ def main():
             for line in node_fd:
                 node = re.split(r"\snp=|\s", line)
                 node = list(filter(None, node))[:2]
-                nodecpus[node[0]] = node[1]
+                nodecpus[node[0]] = int(node[1])
     else:
         # if the nodes files is missing, do a best guess
         # by determining the maximum core # per node
@@ -296,11 +311,19 @@ def main():
 
     sortednodeusage = dict(sorted(nodeusage.items(), key=lambda item: item[0]))
 
+    # compute the time interval over all accounting files in seconds
+    loginterval = epoch_interval(joblist[0].timestamp, joblist[-1].timestamp)
+
     # output node information to a csv
     with open(masternode + '.' + combinedname + '.nodes.csv', 'w') as csv_fd:
         csv_file = csv.writer(csv_fd)
+        csv_file.writerow(header_nodes_csv())
         for i in sortednodeusage:
-            csv_file.writerow([i, sortednodeusage[i]])
+            snu = sortednodeusage[i]
+            ncpu = nodecpus[i]
+            nodeload = [i, snu / 3600, 100 * snu/(ncpu * loginterval) if ncpu * loginterval > 0 else 0]
+            nodeload = [x if type(x) is str or type(x) is int else format(x, '.2f') for x in nodeload]
+            csv_file.writerow(nodeload)
 
     # Users:
     # make a dict with usernames, actual cpuseconds used, and requested cpu times the walltime used
