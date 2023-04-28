@@ -47,9 +47,9 @@ class Job:
         self.nodes = {}
         self.reqcpus = 0
         self.reqnodes = 0
-        self.rucputime = 0
-        self.rumemory = 0
-        self.ruwalltime = 0
+        self.rucputime = '00:00:00'
+        self.rumemory = '0kb'
+        self.ruwalltime = '00:00:00'
         self.usage = {}
         self.maxslot = {}
 
@@ -141,9 +141,9 @@ class Job:
         # self.reqnodes = jobdict.get('unique_node_count', 0)
         self.reqnodes = len(self.nodes)
         
-        self.rucputime = hms2sec(jobdict.get('resources_used.cput', 0))
-        self.rumemory = int(jobdict.get('resources_used.mem', 0).rstrip('kb'))
-        self.ruwalltime = hms2sec(jobdict.get('resources_used.walltime', 0))
+        self.rucputime = hms2sec(jobdict.get('resources_used.cput', '00:00:00'))
+        self.rumemory = int(jobdict.get('resources_used.mem', '0kb').rstrip('kb'))
+        self.ruwalltime = hms2sec(jobdict.get('resources_used.walltime', '00:00:00'))
         
         if self.status == 'E':
             # upon exit, when used resources are known, compute node usage by
