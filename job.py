@@ -59,8 +59,7 @@ class Job:
         be parsed.
         """
         # Register status
-        timestamp = time.strptime(entry[0], "%m/%d/%Y %H:%M:%S")  # localtime
-        timestamp = calendar.timegm(timestamp)
+        timestamp = entry[0]
         self.statuslog[timestamp] = entry[1]
         self.statusstring += entry[1]
         # If the job already has exited, don't change anything.
@@ -81,12 +80,9 @@ class Job:
         """
         message = ''
         try:
-            timestamp = time.strptime(entry[0], "%m/%d/%Y %H:%M:%S")  # localtime
-            self.timestamp = calendar.timegm(timestamp)
-
+            self.timestamp = entry[0]
             self.status = entry[1]
             self.jobid = entry[2]
-
             message = ''.join(entry[3:])
         except IndexError:
             print("Too few entries in job line!")
@@ -214,11 +210,13 @@ def main():
             with open(f, 'r') as accounting_file:
                 for line in accounting_file:
                     entry = line.split(';')
+                    timestamp = calendar.timegm(time.strptime(entry[0], "%m/%d/%Y %H:%M:%S"))
                     # when we don't want all status entries, record only 'E'nded jobs
                     if not args.full:
                         if entry[1] != 'E':
                             continue
-                    entries.append(entry)
+                    # *entry[] unlists a list, otherwise you will create nested lists
+                    entries.append([timestamp, *entry[1:]])
 
     # sort the entries on timestamp in the accounting file(s). (=first element of the entry sublist)
     entries.sort()
