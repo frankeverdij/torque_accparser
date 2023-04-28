@@ -8,7 +8,19 @@ import glob
 import re
 import argparse
 
+class Users:
+    """This class contains user information for billing purposes
+    (cpu's x hours) and degree of parallelism (% used / requested)
+    """
+    def __init__(self, user, usedcpuseconds, reqcpuseconds):
+        self.user = user
+        self.usedcpuseconds = usedcpuseconds
+        self.reqcpuseconds = reqcpuseconds
 
+    def update(self, usedcpuseconds, reqcpuseconds):
+        self.usedcpuseconds += usedcpuseconds
+        self.reqcpuseconds += reqcpuseconds
+    
 class Job:
     """This class contains all relevant information of a job processed
     by the Torque batch system, parsed from accounting information in
@@ -159,6 +171,11 @@ def header_csv():
             't_queue', 't_start', 't_end', '#nodes', '#cores',
             'used_cputime', 'used_memory', 'used_walltime']
 
+def header_users_csv():
+    """print the header string for users csv file
+    """
+    return ['user', 'used_cpuhours', 'req_cpus*walltime', 'pct_parallel']
+
 def hms2sec(hms):
     """quick oneliner for converting HH:MM:SS into seconds
     """
@@ -278,17 +295,26 @@ def main():
             for i in sortednodeusage:
                 csv_file.writerow([i, sortednodeusage[i]])
 
-        users = defaultdict(int)
+        userdict = defaultdict(Users)
         for i in joblist:
-            users[i.user] += i.reqcpus * i.ruwalltime
+            if i.user not in userdict:
+                userdict[i.user] = Users(i.user, i.rucputime, i.reqcpus * i.ruwalltime)
+            else:
+                userdict[i.user].update(i.rucputime, i.reqcpus * i.ruwalltime)
 
-        users = Counter(users)
-        sortedusers = dict(sorted(users.items(), key=lambda item: item[1], reverse=True))
+        sorteduser = dict(sorted(userdict.items(), key=lambda item: item[1].usedcpuseconds, reverse=True))
 
         with open(masternode + '.' + combinedname + '.users.csv', 'w') as csv_fd:
             csv_file = csv.writer(csv_fd)
-            for i in sortedusers:
-                csv_file.writerow([i, sortedusers[i]])
+            csv_file.writerow(header_users_csv())
+            for k in sorteduser:
+                assert(k == sorteduser[k].user)
+                u = sorteduser[k].usedcpuseconds
+                r = sorteduser[k].reqcpuseconds
+                billing = [k, u/3600, r/3600, 100 * u/r if r>0 else 0]
+                billing = [x if type(x) is str else format(x, '.2f') for x in billing]
+                csv_file.writerow(billing)
+
     except IndexError:
         print("Empty joblist")
 
