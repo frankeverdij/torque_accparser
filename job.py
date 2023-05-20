@@ -330,7 +330,7 @@ def main():
     # this allows for computing the degree of parallelisation per user
     userdict = defaultdict(Users)
     for i in joblist:
-        if i.user not in userdict:
+        if (i.user) and (i.user not in userdict):
             userdict[i.user] = Users(i.user, i.rucputime, i.reqcpus * i.ruwalltime)
         else:
             userdict[i.user].update(i.rucputime, i.reqcpus * i.ruwalltime)
