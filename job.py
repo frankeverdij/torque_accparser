@@ -65,8 +65,7 @@ class Job:
         # If the job already has exited, don't change anything.
         if self.status == 'E':
             return
-        # If the job has started, the job can only be rerun, deleted,
-        # aborted or exited.
+        # If the job has started, the job can never be queued.
         if self.status == 'S':
             if entry[1] == 'Q':
                 return
@@ -180,7 +179,7 @@ def header_nodes_csv():
 def header_users_csv():
     """lists the header string for users csv file
     """
-    return ['user', 'used_cpuhours', 'req_cpus*walltime', 'pct_parallel']
+    return ['user', 'used_cpuhours', 'req_cpus*walltimehours', 'pct_parallel']
 
 
 def hms2sec(hms):
