@@ -173,7 +173,7 @@ def header_csv():
 def header_nodes_csv():
     """lists the header string for users csv file
     """
-    return ['nodes', 'total_cpuhours', 'pct_load']
+    return ['node', '#cores', 'total_cpuhours', 'pct_load']
 
 
 def header_users_csv():
@@ -319,7 +319,7 @@ def main():
         for i in sortednodeusage:
             snu = sortednodeusage[i]
             ncpu = nodecpus[i]
-            nodeload = [i, snu / 3600, 100 * snu/(ncpu * loginterval) if ncpu * loginterval > 0 else 0]
+            nodeload = [i, ncpu, snu / 3600, 100 * snu/(ncpu * loginterval) if ncpu * loginterval > 0 else 0]
             nodeload = [x if type(x) is str or type(x) is int else format(x, '.2f') for x in nodeload]
             csv_file.writerow(nodeload)
 
