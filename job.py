@@ -336,8 +336,6 @@ def main():
             else:
                 # existing user
                 userdict[i.user].update(i.rucputime, i.reqcpus * i.ruwalltime)
-        else:
-            print(i.status, i.statusstring, i.timestamp, i.jobid)
 
     sorteduser = dict(sorted(userdict.items(), key=lambda item: item[1].usedcpuseconds, reverse=True))
 
