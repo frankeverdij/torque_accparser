@@ -328,10 +328,16 @@ def main():
     # this allows for computing the degree of parallelisation per user
     userdict = defaultdict(Users)
     for i in joblist:
-        if (i.user) and (i.user not in userdict):
-            userdict[i.user] = Users(i.user, i.rucputime, i.reqcpus * i.ruwalltime)
+        # is the user field filled in? If not, then it's most likely an array job.
+        if (i.user):
+            if (i.user not in userdict):
+                # new user
+                userdict[i.user] = Users(i.user, i.rucputime, i.reqcpus * i.ruwalltime)
+            else:
+                # existing user
+                userdict[i.user].update(i.rucputime, i.reqcpus * i.ruwalltime)
         else:
-            userdict[i.user].update(i.rucputime, i.reqcpus * i.ruwalltime)
+            print(i.status, i.statusstring, i.timestamp, i.jobid)
 
     sorteduser = dict(sorted(userdict.items(), key=lambda item: item[1].usedcpuseconds, reverse=True))
 
